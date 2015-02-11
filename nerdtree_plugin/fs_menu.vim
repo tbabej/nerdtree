@@ -97,6 +97,7 @@ function! s:promptToRenameBuffer(bufnum, msg, newFileName)
         exec "bwipeout! " . a:bufnum
     endif
 endfunction
+
 "FUNCTION: NERDTreeAddNode(){{{1
 function! NERDTreeAddNode()
     let curDirNode = g:NERDTreeDirNode.GetSelected()
@@ -267,4 +268,59 @@ function! NERDTreeExecuteFile()
     endif
 endfunction
 
+" FUNCTION: NERDTreeMoveNodeAuto() {{{1
+function! NERDTreeMoveNodeAuto(from, to)
+    let curNode = g:NERDTreeFileNode.GetSelected()
+    let parentCurNode = g:NERDTreeDirNode.GetSelected()
+    let path = curNode.path.str()
+    let parentPath = parentCurNode.path.str()
+    let newNodePath = substitute(path, a:from, a:to, "")
+    let newNodeDirPath = substitute(parentPath, a:from, a:to, "")
+
+    if newNodePath ==# ''
+        call s:echo("Node Renaming Aborted.")
+        return
+    endif
+
+    " Copied from NERDTreeAddNode
+    " Creates the parent node, if does not exist
+    try
+        let newPath = g:NERDTreePath.Create(newNodeDirPath)
+        let parentNode = b:NERDTreeRoot.findNode(newPath.getParent())
+
+        let newTreeNode = g:NERDTreeFileNode.New(newPath)
+        if empty(parentNode)
+            call b:NERDTreeRoot.refresh()
+            call b:NERDTree.render()
+        elseif parentNode.isOpen || !empty(parentNode.children)
+            call parentNode.addChild(newTreeNode, 1)
+            call NERDTreeRender()
+            call newTreeNode.putCursorHere(1, 0)
+        endif
+    catch /^NERDTree/
+    " Assume any error says that directory already exists and continue
+    endtry
+
+    " Moves the current node
+    " Copied from NERDTreeMoveNode
+    try
+        let bufnum = bufnr("^".curNode.path.str()."$")
+
+        call curNode.rename(newNodePath)
+        call NERDTreeRender()
+
+        "if the node is open in a buffer, ask the user if they want to
+        "close that buffer
+        if bufnum != -1
+            let prompt = "\nNode renamed.\n\nThe old file is open in buffer ". bufnum . (bufwinnr(bufnum) ==# -1 ? " (hidden)" : "") .". Replace this buffer with a new file? (yN)"
+            call s:promptToRenameBuffer(bufnum,  prompt, newNodePath)
+        endif
+
+        call curNode.putCursorHere(1, 0)
+
+        redraw
+    catch /^NERDTree/
+        call s:echoWarning("Node Not Renamed.")
+    endtry
+endfunction
 " vim: set sw=4 sts=4 et fdm=marker:
