@@ -83,7 +83,7 @@ endfunction
 "Return:
 "a string that can be used in the view to represent this node
 function! s:TreeFileNode.displayString()
-    return self.path.displayString()
+    return substitute(self.path.displayString(), '\.txt$', '', '')
 endfunction
 
 "FUNCTION: TreeFileNode.equals(treenode) {{{1
